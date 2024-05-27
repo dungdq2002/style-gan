@@ -1,23 +1,21 @@
-from datetime import datetime
 import functools
 import os
-import time
 import shutil
+import time
+from datetime import datetime
 
 import numpy as np
 import torch as th
-from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.nn.functional as func
-from torch.utils.serialization import load_lua
+from torch.autograd import Variable
 
 
 class PatchDiscriminator(nn.Module):
     def __init__(
         self,
         scn,
-        ccn,
         input_nc=3,
         ndf=64,
         n_layers=3,

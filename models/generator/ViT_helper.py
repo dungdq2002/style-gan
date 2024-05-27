@@ -1,3 +1,8 @@
+import collections.abc as container_abcs
+import math
+import warnings
+from itertools import repeat
+
 import torch
 from torch import nn
 
@@ -32,10 +37,13 @@ class DropPath(nn.Module):
     def forward(self, x):
         return drop_path(x, self.drop_prob, self.training)
 
+<<<<<<< HEAD
 
 from itertools import repeat
 from torch._six import container_abcs
 
+=======
+>>>>>>> c6fd632 ([add] merge code)
 
 # From PyTorch internals
 def _ntuple(n):
@@ -53,11 +61,14 @@ to_3tuple = _ntuple(3)
 to_4tuple = _ntuple(4)
 
 
+<<<<<<< HEAD
 import torch
 import math
 import warnings
 
 
+=======
+>>>>>>> c6fd632 ([add] merge code)
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
