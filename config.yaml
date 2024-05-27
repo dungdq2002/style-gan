@@ -1,0 +1,10 @@
+train:
+  content_dir: "data/train/content"
+  style_dir: "data/train/style"
+  save_dir: "data/train/save"
+  log_dir: "data/train/log"
+  batch_size: 4
+  epochs: 2
+  lr: 1e-3
+  content_weight: 1
+  style_weight: 1

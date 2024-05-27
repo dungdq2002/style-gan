@@ -5,9 +5,10 @@ import torch
 import torch.optim as optim
 import torch.utils.data as data
 
+from config import Config
+
 if __name__ == "__main__":
-    # arg parser
-    args = None
+    config = Config()
 
     # device config
     USE_CUDA = torch.cuda.is_available()
