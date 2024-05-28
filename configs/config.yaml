@@ -1,18 +1,18 @@
 train:
-    content_dir: "dataset/content/train"
-    style_dir: "dataset/style/train"
-    save_dir: "run"
-    log_dir: "log"
-    # vgg_path: "pretrained/vgg19-dcbb9e9d.pth"
-    batch_size: 4
-    epochs: 2
-    lr: 1.0e-3
-    d_lr: 1.0e-3
-    content_weight: 1
-    style_weight: 1
-    cls_weight: 1
-    bin_weight: 1
-    max_iterations: 160000
-    gan_ratio: 0.3
-    gr_freq: 1
-    num_workers: 4
+  content_dir: "dataset/content/train"
+  style_dir: "dataset/style/train"
+  save_dir: "run"
+  log_dir: "log"
+  # vgg_path: "pretrained/vgg19-dcbb9e9d.pth"
+  batch_size: 1
+  epochs: 2
+  lr: 1.0e-3
+  d_lr: 1.0e-3
+  content_weight: 1
+  style_weight: 1
+  cls_weight: 1
+  bin_weight: 1
+  max_iterations: 160000
+  gan_ratio: 0.3
+  gr_freq: 1
+  num_workers: 4
