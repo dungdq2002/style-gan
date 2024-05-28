@@ -35,6 +35,7 @@ if __name__ == "__main__":
     # device config
     USE_CUDA = torch.cuda.is_available()
     device = torch.device("cuda:0" if USE_CUDA else "cpu")
+    # device = torch.device("cpu")
     train_tf = train_transform()
     # content img preparation
     content_dataset = folder.FolderDataset(
@@ -81,13 +82,13 @@ if __name__ == "__main__":
     optimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.transformer.parameters()
+                "params": network.module.generator.transformer.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.decode.parameters()
+                "params": network.module.generator.decode.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.embedding.parameters()
+                "params": network.module.generator.embedding.parameters()
             },
         ],
         lr=train_config.lr,  # TODO: add more parameters if needed
@@ -97,7 +98,7 @@ if __name__ == "__main__":
     doptimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of Discriminator
-                "params": network.discriminator.parameters()
+                "params": network.module.discriminator.parameters()
             }
         ],
         lr=train_config.d_lr,  # TODO: add more parameters if needed
@@ -110,6 +111,7 @@ if __name__ == "__main__":
         content_images = next(content_iter).to(device)
         style_images, slabels = next(style_iter)
         style_images = style_images.to(device)
+        slabels = slabels.to(device)
 
         # ratio to flip label in GAN
         ratio_thr = train_config.gan_ratio / max(it / train_config.gr_freq, 1.0)
@@ -125,7 +127,7 @@ if __name__ == "__main__":
         )
 
         # ================ Train the generator (StyTr2) ================ #
-        network.discriminator.requires_grad_(False)
+        network.module.discriminator.requires_grad_(False)
 
         optimizer.zero_grad()
         gen_loss = (
@@ -139,11 +141,11 @@ if __name__ == "__main__":
 
         # ================== Train the discriminator ================== #
         # for real style images
-        real_loss_cls, real_loss_adv = network.discriminator(
+        real_loss_cls, real_loss_adv = network.module.discriminator(
             style_images, slabels, use_real
         )
 
-        network.discriminator.requires_grad_(True)
+        network.module.discriminator.requires_grad_(True)
 
         doptimizer.zero_grad()
 
