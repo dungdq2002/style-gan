@@ -73,10 +73,7 @@ if __name__ == "__main__":
     network.to(device)
     print(device)
 
-    try:
-        network = nn.DataParallel(network, device_ids=[0, 1])  # adjust devices
-    except Exception as e:
-        print(e)
+    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
