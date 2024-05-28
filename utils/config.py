@@ -20,6 +20,10 @@ class Train:
         self.gr_freq = raw.get("gr_freq", 1)  # frequency to adjust gan ratio
         self.num_workers = raw.get("num_workers", 4)
         self.vgg_path = raw.get("vgg_path", None)
+        self.sample_output_dir = raw.get("sample_output_dir", "out/sample")
+        self.num_iterations_per_sample_generation = raw.get(
+            "num_iterations_per_sample_generation", 1
+        )
 
 
 class Config:
