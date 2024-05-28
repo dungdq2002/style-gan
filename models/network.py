@@ -15,12 +15,13 @@ class Network(nn.Module):
         nn (_type_): _description_
     """
 
-    def __init__(self, args):
+    def __init__(self, config, number_of_styles=27):
         super(Network, self).__init__()
         # vgg load
         self.vgg = get_vgg()
-        # self.vgg.load_state_dict(torch.load(args.vgg))
-        # self.vgg = nn.Sequential(*list(vgg.children())[:44])
+        if config.vgg_path:
+            self.vgg.load_state_dict(torch.load(config.vgg_path))
+        self.vgg = nn.Sequential(*list(self.vgg.children())[:44])
 
         self.decoder = get_decoder()
         self.patch_embed = PatchEmbed()
@@ -33,13 +34,13 @@ class Network(nn.Module):
             transformer=self.transformer,
         )
 
-        self.discriminator = PatchDiscriminator(scn=args.scn)
+        self.discriminator = PatchDiscriminator(scn=number_of_styles)
 
-    def forward(self, contents, styles, label=True):
+    def forward(self, contents, styles, labels, label=True):
         # unpatch style to img and slabel
-        style_imgs, slabels = styles
+        # style_imgs, slabels = styles
 
-        imgs, loss_c, loss_s = self.generator(contents, style_imgs)
-        loss_cls, loss_adv = self.discriminator(imgs, slabels, label)
+        imgs, loss_c, loss_s = self.generator(contents, styles)
+        loss_cls, loss_adv = self.discriminator(imgs, labels, label)
 
         return imgs, loss_cls, loss_adv, loss_c, loss_s

@@ -11,3 +11,5 @@ sympy==1.12
 torch==2.3.0
 torchvision==0.18.0
 triton==2.3.0
+timm==1.0.3
+sampler==0.2.0
