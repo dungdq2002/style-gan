@@ -122,12 +122,12 @@ if __name__ == "__main__":
             use_real = False
 
         # model output
-        img, loss_cls, loss_adv, loss_c, loss_s = network(
-            content_images, style_images, slabels, not use_real
-        )
 
         # ================ Train the generator (StyTr2) ================ #
         network.module.discriminator.requires_grad_(False)
+        img, loss_cls, loss_adv, loss_c, loss_s = network(
+            content_images, style_images, slabels, not use_real
+        )
 
         optimizer.zero_grad()
         gen_loss = (
@@ -146,6 +146,9 @@ if __name__ == "__main__":
         )
 
         network.module.discriminator.requires_grad_(True)
+        img, loss_cls, loss_adv, loss_c, loss_s = network(
+            content_images, style_images, slabels, not use_real
+        )
 
         doptimizer.zero_grad()
 
