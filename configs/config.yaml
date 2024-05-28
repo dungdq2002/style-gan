@@ -1,6 +1,7 @@
 train:
   content_dir: "dataset/content/train"
   style_dir: "dataset/style/train"
+  sample_output_dir: "out/sample"
   save_dir: "run"
   log_dir: "log"
   # vgg_path: "pretrained/vgg19-dcbb9e9d.pth"
@@ -16,3 +17,4 @@ train:
   gan_ratio: 0.3
   gr_freq: 1
   num_workers: 4
+  num_iterations_per_sample_generation: 1

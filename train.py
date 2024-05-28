@@ -1,3 +1,4 @@
+import os
 import argparse
 import random
 
@@ -5,12 +6,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
+from torchvision.utils import save_image
 
 from models.network import Network
 from models.generator.sampler import InfiniteSamplerWrapper
 from utils import folder
 from utils.config import Config
 from utils.img_transform import train_transform
+
+from tensorboardX import SummaryWriter
 
 
 def parser():
@@ -27,10 +31,18 @@ def parser():
 
 if __name__ == "__main__":
     args = parser()
-    # print("test")
 
     config = Config(args.config)
     train_config = config.train
+
+    if not os.path.exists(train_config.save_dir):
+        os.makedirs(train_config.save_dir)
+
+    if not os.path.exists(train_config.log_dir):
+        os.makedirs(train_config.log_dir)
+
+    if not os.path.exists(train_config.sample_output_dir):
+        os.makedirs(train_config.sample_output_dir)
 
     # device config
     USE_CUDA = torch.cuda.is_available()
@@ -71,7 +83,8 @@ if __name__ == "__main__":
     network = Network(train_config, number_of_styles)
     network.train()
     network.to(device)
-    print(device)
+
+    print("== Device in use: ", device)
 
     network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
@@ -101,6 +114,8 @@ if __name__ == "__main__":
         lr=train_config.d_lr,  # TODO: add more parameters if needed
     )
 
+    writer = SummaryWriter(log_dir=train_config.log_dir)
+
     # training loop
     for it in range(train_config.max_iterations):
         # implement adjust learning rate here if needed
@@ -122,7 +137,7 @@ if __name__ == "__main__":
 
         # ================ Train the generator (StyTr2) ================ #
         network.module.discriminator.requires_grad_(False)
-        img, loss_cls, loss_adv, loss_c, loss_s = network(
+        imgs, loss_cls, loss_adv, loss_c, loss_s = network(
             content_images, style_images, slabels, not use_real
         )
 
@@ -135,6 +150,19 @@ if __name__ == "__main__":
         )  # compute with loss_cls, loss_adv, loss_c, loss_s
         gen_loss.sum().backward()
         optimizer.step()
+
+        # save checkpoint
+        state_dict = network.module.state_dict()
+        torch.save(
+            state_dict,
+            f"{train_config.save_dir}/checkpoint_{it}.pth",
+        )
+
+        # generate sample image when training
+        if it % train_config.num_iterations_per_sample_generation == 0:
+            # save sample image
+            output = f"{train_config.sample_output_dir}/sample_{it}.png"
+            save_image(imgs[0], output)
 
         # ================== Train the discriminator ================== #
         # for real style images
@@ -158,4 +186,16 @@ if __name__ == "__main__":
         dis_loss.sum().backward()
         doptimizer.step()
 
+        writer.add_scalar("loss/gen/total", gen_loss, it)
+        writer.add_scalar("loss/gen/cls", loss_cls, it)
+        writer.add_scalar("loss/gen/adv", loss_adv, it)
+        writer.add_scalar("loss/gen/content", loss_c, it)
+        writer.add_scalar("loss/gen/style", loss_s, it)
+
+        writer.add_scalar("loss/dis/total", dis_loss, it)
+        writer.add_scalar("loss/dis/cls", real_loss_cls, it)
+        writer.add_scalar("loss/dis/adv", real_loss_adv, it)
+
         print(f"Done iteration {it}, loss: {gen_loss}, {dis_loss}")
+
+writer.close()
