@@ -157,3 +157,5 @@ if __name__ == "__main__":
 
         dis_loss.sum().backward()
         doptimizer.step()
+
+        print(f"Done iteration {it}, loss: {gen_loss}, {dis_loss}")
