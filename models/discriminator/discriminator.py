@@ -88,7 +88,7 @@ class PatchDiscriminator(nn.Module):
         self.bce = nn.BCEWithLogitsLoss()
 
     def get_adv_loss(self, indata, label=True):
-        if use_real:
+        if label:
             target = th.ones_like(indata)
         else:
             target = th.zeros_like(indata)
