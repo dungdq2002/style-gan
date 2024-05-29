@@ -89,30 +89,30 @@ if __name__ == "__main__":
     # network = nn.DataParallel(network, device_ids=[0, 1])  # adjust devices
 
     # optimizer for generator
-    optimizer = optim.Adam(
-        [
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.transformer.parameters()
-            },
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.decode.parameters()
-            },
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.embedding.parameters()
-            },
-        ],
-        lr=train_config.lr,  # TODO: add more parameters if needed
-    )
+    # optimizer = optim.Adam(
+    #     [
+    #         {  # TODO: make sure to get parameters of StyTr2
+    #             "params": network.module.generator.transformer.parameters()
+    #         },
+    #         {  # TODO: make sure to get parameters of StyTr2
+    #             "params": network.module.generator.decode.parameters()
+    #         },
+    #         {  # TODO: make sure to get parameters of StyTr2
+    #             "params": network.module.generator.embedding.parameters()
+    #         },
+    #     ],
+    #     lr=train_config.lr,  # TODO: add more parameters if needed
+    # )
 
     # optimier for discriminator
-    doptimizer = optim.Adam(
-        [
-            {  # TODO: make sure to get parameters of Discriminator
-                "params": network.module.discriminator.parameters()
-            }
-        ],
-        lr=train_config.d_lr,  # TODO: add more parameters if needed
-    )
+    # doptimizer = optim.Adam(
+    #     [
+    #         {  # TODO: make sure to get parameters of Discriminator
+    #             "params": network.module.discriminator.parameters()
+    #         }
+    #     ],
+    #     lr=train_config.d_lr,  # TODO: add more parameters if needed
+    # )
 
     writer = SummaryWriter(log_dir=train_config.log_dir)
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
-        network.module.discriminator.requires_grad_(False)
+        # network.module.discriminator.requires_grad_(False)
         imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
             content_images, style_images, slabels, not use_real
         )
@@ -148,7 +148,7 @@ if __name__ == "__main__":
         #     content_images, style_images, slabels, False
         # )
 
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
         gen_loss = (
             loss_cls * train_config.cls_weight
             + loss_adv * train_config.bin_weight
@@ -158,7 +158,7 @@ if __name__ == "__main__":
             + loss_id2 * 0.1
         )  # compute with loss_cls, loss_adv, loss_c, loss_s
         gen_loss.sum().backward()
-        optimizer.step()
+        # optimizer.step()
 
         writer.add_scalar("loss/gen/total", gen_loss, it)
         writer.add_scalar("loss/gen/cls", loss_cls, it)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
             content_images, style_images, slabels, not use_real
         )
 
-        doptimizer.zero_grad()
+        # doptimizer.zero_grad()
 
         dis_loss = train_config.cls_weight * (
             real_loss_cls + loss_cls
@@ -205,7 +205,7 @@ if __name__ == "__main__":
         )  # compute with real_loss_cls, loss_cls, real_loss_adv, loss_adv
 
         dis_loss.sum().backward()
-        doptimizer.step()
+        # doptimizer.step()
 
         writer.add_scalar("loss/dis/total", dis_loss, it)
         writer.add_scalar("loss/dis/fake_cls", loss_cls, it)
