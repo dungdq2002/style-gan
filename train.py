@@ -137,26 +137,40 @@ if __name__ == "__main__":
 
         # ================ Train the generator (StyTr2) ================ #
         network.module.discriminator.requires_grad_(False)
-        imgs, loss_cls, loss_adv, loss_c, loss_s = network(
+        imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
             content_images, style_images, slabels, not use_real
         )
+        # imgs, loss_cls, loss_adv, loss_c, loss_s = network(
+        #     content_images, style_images, slabels, False
+        # )
 
         optimizer.zero_grad()
         gen_loss = (
-            loss_cls
-            + loss_adv
+            loss_cls * train_config.cls_weight
+            + loss_adv * train_config.bin_weight
             + train_config.content_weight * loss_c
             + train_config.style_weight * loss_s
+            + loss_id1 * 5
+            + loss_id2 * 0.1
         )  # compute with loss_cls, loss_adv, loss_c, loss_s
         gen_loss.sum().backward()
         optimizer.step()
 
+        writer.add_scalar("loss/gen/total", gen_loss, it)
+        writer.add_scalar("loss/gen/cls", loss_cls, it)
+        writer.add_scalar("loss/gen/adv", loss_adv, it)
+        writer.add_scalar("loss/gen/content", loss_c, it)
+        writer.add_scalar("loss/gen/style", loss_s, it)
+        writer.add_scalar("loss/gen/id1", loss_id1, it)
+        writer.add_scalar("loss/gen/id2", loss_id2, it)
+
         # save checkpoint
         state_dict = network.module.state_dict()
-        torch.save(
-            state_dict,
-            f"{train_config.save_dir}/checkpoint_{it}.pth",
-        )
+        if it % 1000 == 0:
+            torch.save(
+                state_dict,
+                f"{train_config.save_dir}/checkpoint_{it}.pth",
+            )
 
         # generate sample image when training
         if it % train_config.num_iterations_per_sample_generation == 0:
@@ -171,7 +185,10 @@ if __name__ == "__main__":
         )
 
         network.module.discriminator.requires_grad_(True)
-        img, loss_cls, loss_adv, loss_c, loss_s = network(
+        # img, loss_cls, loss_adv, _, _ = network(
+        #     content_images, style_images, slabels, not use_real
+        # )
+        img, loss_cls, loss_adv, _, _, _, _ = network(
             content_images, style_images, slabels, not use_real
         )
 
@@ -186,15 +203,11 @@ if __name__ == "__main__":
         dis_loss.sum().backward()
         doptimizer.step()
 
-        writer.add_scalar("loss/gen/total", gen_loss, it)
-        writer.add_scalar("loss/gen/cls", loss_cls, it)
-        writer.add_scalar("loss/gen/adv", loss_adv, it)
-        writer.add_scalar("loss/gen/content", loss_c, it)
-        writer.add_scalar("loss/gen/style", loss_s, it)
-
         writer.add_scalar("loss/dis/total", dis_loss, it)
-        writer.add_scalar("loss/dis/cls", real_loss_cls, it)
-        writer.add_scalar("loss/dis/adv", real_loss_adv, it)
+        writer.add_scalar("loss/dis/fake_cls", loss_cls, it)
+        writer.add_scalar("loss/dis/fake_adv", loss_adv, it)
+        writer.add_scalar("loss/dis/real_cls", real_loss_cls, it)
+        writer.add_scalar("loss/dis/real_adv", real_loss_adv, it)
 
         print(f"Done iteration {it}, loss: {gen_loss}, {dis_loss}")
 

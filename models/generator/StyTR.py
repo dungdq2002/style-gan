@@ -94,25 +94,25 @@ class StyTrans(nn.Module):
         for i in range(1, 5):
             loss_s += self.calc_style_loss(Ics_feats[i], style_feats[i])
 
-        return Ics, loss_c, loss_s
-        # Icc = self.decode(self.transformer(content, mask, content, pos_c, pos_c))
-        # Iss = self.decode(self.transformer(style, mask, style, pos_s, pos_s))
+        # return Ics, loss_c, loss_s
+        Icc = self.decode(self.transformer(content, mask, content, pos_c, pos_c))
+        Iss = self.decode(self.transformer(style, mask, style, pos_s, pos_s))
 
-        # # Identity losses lambda 1
-        # loss_lambda1 = self.calc_content_loss(
-        #     Icc, content_input
-        # ) + self.calc_content_loss(Iss, style_input)
+        # Identity losses lambda 1
+        loss_lambda1 = self.calc_content_loss(
+            Icc, content_input
+        ) + self.calc_content_loss(Iss, style_input)
 
-        # # Identity losses lambda 2
-        # Icc_feats = self.encode_with_intermediate(Icc)
-        # Iss_feats = self.encode_with_intermediate(Iss)
-        # loss_lambda2 = self.calc_content_loss(
-        #     Icc_feats[0], content_feats[0]
-        # ) + self.calc_content_loss(Iss_feats[0], style_feats[0])
-        # for i in range(1, 5):
-        #     loss_lambda2 += self.calc_content_loss(
-        #         Icc_feats[i], content_feats[i]
-        #     ) + self.calc_content_loss(Iss_feats[i], style_feats[i])
-        # # Please select and comment out one of the following two sentences
-        # return Ics, loss_c, loss_s, loss_lambda1, loss_lambda2  # train
+        # Identity losses lambda 2
+        Icc_feats = self.encode_with_intermediate(Icc)
+        Iss_feats = self.encode_with_intermediate(Iss)
+        loss_lambda2 = self.calc_content_loss(
+            Icc_feats[0], content_feats[0]
+        ) + self.calc_content_loss(Iss_feats[0], style_feats[0])
+        for i in range(1, 5):
+            loss_lambda2 += self.calc_content_loss(
+                Icc_feats[i], content_feats[i]
+            ) + self.calc_content_loss(Iss_feats[i], style_feats[i])
+        # Please select and comment out one of the following two sentences
+        return Ics, loss_c, loss_s, loss_lambda1, loss_lambda2  # train
         # return Ics    #test

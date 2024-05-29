@@ -40,7 +40,9 @@ class Network(nn.Module):
         # unpatch style to img and slabel
         # style_imgs, slabels = styles
 
-        imgs, loss_c, loss_s = self.generator(contents, styles)
+        imgs, loss_c, loss_s, loss_id1, loss_id2 = self.generator(contents, styles)
+        # imgs, loss_c, loss_s = self.generator(contents, styles)
         loss_cls, loss_adv = self.discriminator(imgs, labels, label)
 
-        return imgs, loss_cls, loss_adv, loss_c, loss_s
+        # return imgs, loss_cls, loss_adv, loss_c, loss_s
+        return imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2
