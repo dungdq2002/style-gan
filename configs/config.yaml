@@ -9,12 +9,14 @@ train:
   epochs: 2
   lr: 1.0e-3
   d_lr: 1.0e-3
-  content_weight: 1
-  style_weight: 1
-  cls_weight: 1
-  bin_weight: 1
+  content_weight: 10
+  style_weight: 7
+  cls_weight: 3
+  bin_weight: 5
+  id_1_weight: 50
+  id_2_weight: 1
   max_iterations: 160000
   gan_ratio: 0.3
   gr_freq: 1
   num_workers: 4
-  num_iterations_per_sample_generation: 1
+  num_iterations_per_sample_generation: 100

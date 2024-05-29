@@ -16,6 +16,8 @@ class Train:
         self.style_weight = raw.get("style_weight", 1)
         self.cls_weight = raw.get("cls_weight", 1)
         self.bin_weight = raw.get("bin_weight", 1)
+        self.id_1_weight = raw.get("id_1_weight", 50)
+        self.id_2_weight = raw.get("id_2_weight", 1)
         self.gan_ratio = raw.get("gan_ratio", 1)  # ratio to flip label in GAN
         self.gr_freq = raw.get("gr_freq", 1)  # frequency to adjust gan ratio
         self.num_workers = raw.get("num_workers", 4)
