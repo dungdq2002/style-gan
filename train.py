@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     print("== Device in use: ", device)
 
-    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
+    network = nn.DataParallel(network, device_ids=[0, 1])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
@@ -115,6 +115,10 @@ if __name__ == "__main__":
     )
 
     writer = SummaryWriter(log_dir=train_config.log_dir)
+
+    # Count number of parameters
+    num_params = sum(p.numel() for p in network.parameters() if p.requires_grad)
+    print(f"Number of parameters: {num_params}")
 
     # training loop
     for it in range(train_config.max_iterations):
