@@ -154,8 +154,8 @@ if __name__ == "__main__":
             + loss_adv * train_config.bin_weight
             + train_config.content_weight * loss_c
             + train_config.style_weight * loss_s
-            + loss_id1 * 5
-            + loss_id2 * 0.1
+            + loss_id1 * train_config.id_1_weight
+            + loss_id2 * train_config.id_2_weight
         )  # compute with loss_cls, loss_adv, loss_c, loss_s
         gen_loss.sum().backward()
         optimizer.step()
