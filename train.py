@@ -86,19 +86,19 @@ if __name__ == "__main__":
 
     print("== Device in use: ", device)
 
-    # network = nn.DataParallel(network, device_ids=[0, 1])  # adjust devices
+    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.transformer.parameters()
+                "params": network.module.generator.transformer.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.decode.parameters()
+                "params": network.module.generator.decode.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.embedding.parameters()
+                "params": network.module.generator.embedding.parameters()
             },
         ],
         lr=train_config.lr,  # TODO: add more parameters if needed
@@ -108,17 +108,13 @@ if __name__ == "__main__":
     doptimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of Discriminator
-                "params": network.discriminator.parameters()
+                "params": network.module.discriminator.parameters()
             }
         ],
         lr=train_config.d_lr,  # TODO: add more parameters if needed
     )
 
     writer = SummaryWriter(log_dir=train_config.log_dir)
-
-    # Count number of parameters
-    num_params = sum(p.numel() for p in network.parameters() if p.requires_grad)
-    print(f"Number of parameters: {num_params}")
 
     # training loop
     for it in range(train_config.max_iterations):
@@ -140,7 +136,7 @@ if __name__ == "__main__":
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
-        network.discriminator.requires_grad_(False)
+        network.module.discriminator.requires_grad_(False)
         imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
             content_images, style_images, slabels, not use_real
         )
@@ -169,7 +165,7 @@ if __name__ == "__main__":
         writer.add_scalar("loss/gen/id2", loss_id2, it)
 
         # save checkpoint
-        state_dict = network.state_dict()
+        state_dict = network.module.state_dict()
         if it % 1000 == 0:
             torch.save(
                 state_dict,
@@ -184,11 +180,11 @@ if __name__ == "__main__":
 
         # ================== Train the discriminator ================== #
         # for real style images
-        real_loss_cls, real_loss_adv = network.discriminator(
+        real_loss_cls, real_loss_adv = network.module.discriminator(
             style_images, slabels, use_real
         )
 
-        network.discriminator.requires_grad_(True)
+        network.module.discriminator.requires_grad_(True)
         # img, loss_cls, loss_adv, _, _ = network(
         #     content_images, style_images, slabels, not use_real
         # )
