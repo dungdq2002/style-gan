@@ -164,5 +164,6 @@ dataset/
 out/
 log/
 run/
+dataset.zip
 
 playground.ipynb
