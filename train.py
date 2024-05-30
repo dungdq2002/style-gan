@@ -86,19 +86,19 @@ if __name__ == "__main__":
 
     print("== Device in use: ", device)
 
-    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
+    # network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.transformer.parameters()
+                "params": network.generator.transformer.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.decode.parameters()
+                "params": network.generator.decode.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.embedding.parameters()
+                "params": network.generator.embedding.parameters()
             },
         ],
         lr=train_config.lr,  # TODO: add more parameters if needed
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     doptimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of Discriminator
-                "params": network.module.discriminator.parameters()
+                "params": network.discriminator.parameters()
             }
         ],
         lr=train_config.d_lr,  # TODO: add more parameters if needed
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
-        network.module.discriminator.requires_grad_(False)
+        network.discriminator.requires_grad_(False)
         imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
             content_images, style_images, slabels, False
         )
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         writer.add_scalar("loss/gen/id2", loss_id2, it)
 
         # save checkpoint
-        state_dict = network.module.state_dict()
+        state_dict = network.state_dict()
         if it % 1000 == 0:
             torch.save(
                 state_dict,
@@ -180,11 +180,11 @@ if __name__ == "__main__":
 
         # ================== Train the discriminator ================== #
         # for real style images
-        real_loss_cls, real_loss_adv = network.module.discriminator(
+        real_loss_cls, real_loss_adv = network.discriminator(
             style_images, slabels, True
         )
 
-        network.module.discriminator.requires_grad_(True)
+        network.discriminator.requires_grad_(True)
         # img, loss_cls, loss_adv, _, _ = network(
         #     content_images, style_images, slabels, not use_real
         # )
