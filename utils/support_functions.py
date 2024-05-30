@@ -221,7 +221,7 @@ def adjust_learning_rate(optimizer, lr_decay, iteration_count):
         param_group["lr"] = lr
 
 
-def warmup_learning_rate(optimizer, lr, config, iteration_count):
+def warmup_learning_rate(optimizer, lr, iteration_count):
     """Imitating the original implementation"""
     lr = lr * 0.1 * (1.0 + 3e-4 * iteration_count)
     # print(lr)

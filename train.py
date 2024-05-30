@@ -45,9 +45,6 @@ if __name__ == "__main__":
     if not os.path.exists(train_config.sample_output_dir):
         os.makedirs(train_config.sample_output_dir)
 
-    if not os.path.exists("weights"):
-        os.makedirs("weights")
-
     # device config
     USE_CUDA = torch.cuda.is_available()
     device = torch.device("cuda:0" if USE_CUDA else "cpu")
@@ -96,27 +93,17 @@ if __name__ == "__main__":
     # optimizer for generator
     optimizer = optim.Adam(
         [
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.transformer.parameters()
-            },
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.decode.parameters()
-            },
-            {  # TODO: make sure to get parameters of StyTr2
-                "params": network.module.generator.embedding.parameters()
-            },
+            {"params": network.module.generator.transformer.parameters()},
+            {"params": network.module.generator.decode.parameters()},
+            {"params": network.module.generator.embedding.parameters()},
         ],
-        lr=train_config.lr,  # TODO: add more parameters if needed
+        lr=train_config.lr,
     )
 
     # optimier for discriminator
     doptimizer = optim.Adam(
-        [
-            {  # TODO: make sure to get parameters of Discriminator
-                "params": network.module.discriminator.parameters()
-            }
-        ],
-        lr=train_config.d_lr,  # TODO: add more parameters if needed
+        [{"params": network.module.discriminator.parameters()}],
+        lr=train_config.d_lr,
     )
 
     writer = SummaryWriter(log_dir=train_config.log_dir)
@@ -145,14 +132,13 @@ if __name__ == "__main__":
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
-        network.module.discriminator.requires_grad_(False)
-        network.module.generator.unfreeze()
-        imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
-            content_images, style_images, slabels, False
+        # network.module.generator.unfreeze()
+        imgs, loss_c, loss_s, loss_id1, loss_id2 = network.module.generator(
+            content_images, style_images
         )
-        # imgs, loss_cls, loss_adv, loss_c, loss_s = network(
-        #     content_images, style_images, slabels, False
-        # )
+
+        network.module.discriminator.requires_grad_(False)
+        loss_cls, loss_adv = network.module.discriminator(imgs, slabels, True)
 
         loss_c *= train_config.content_weight
         loss_s *= train_config.style_weight
@@ -195,18 +181,19 @@ if __name__ == "__main__":
 
         # ================== Train the discriminator ================== #
         # for real style images
+        network.module.discriminator.requires_grad_(True)
+
         real_loss_cls, real_loss_adv = network.module.discriminator(
             style_images, slabels, True
         )
-
-        network.module.discriminator.requires_grad_(True)
-        network.module.generator.freeze()
+        # network.module.generator.freeze()
         # img, loss_cls, loss_adv, _, _ = network(
         #     content_images, style_images, slabels, not use_real
         # )
-        img, loss_cls, loss_adv, _, _, _, _ = network(
-            content_images, style_images, slabels, False
-        )
+        # img, loss_cls, loss_adv, _, _, _, _ = network(
+        #     content_images, style_images, slabels, False
+        # )
+        loss_cls, loss_adv = network.module.discriminator(imgs, slabels, False)
 
         doptimizer.zero_grad()
 
