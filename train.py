@@ -124,9 +124,9 @@ if __name__ == "__main__":
     # training loop
     for it in range(train_config.max_iterations):
         if it < 1e4:
-            sf.warmup_learning_rate(optimizer, it)
+            sf.warmup_learning_rate(optimizer, train_config.lr, it)
         else:
-            sf.adjust_learning_rate(optimizer, train_config, it)
+            sf.adjust_learning_rate(optimizer, train_config.lr_decay, it)
         # implement adjust learning rate here if needed
 
         content_images = next(content_iter).to(device)

@@ -26,6 +26,7 @@ class Train:
         self.num_iterations_per_sample_generation = raw.get(
             "num_iterations_per_sample_generation", 1
         )
+        self.lr_decay = raw.get("lr_decay", 5e-4)
 
 
 class Config:
