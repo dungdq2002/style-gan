@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
     print("== Device in use: ", device)
 
-    network = nn.DataParallel(network)  # adjust devices
+    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
