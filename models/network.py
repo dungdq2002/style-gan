@@ -19,8 +19,9 @@ class Network(nn.Module):
         super(Network, self).__init__()
         # vgg load
         self.vgg = get_vgg()
-        if config.vgg_path:
+        if config.vgg_path is not None:
             self.vgg.load_state_dict(torch.load(config.vgg_path))
+            print("------ VGG loaded from: ", config.vgg_path, " ------")
         self.vgg = nn.Sequential(*list(self.vgg.children())[:44])
 
         self.decoder = get_decoder()

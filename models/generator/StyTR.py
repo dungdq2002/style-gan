@@ -54,6 +54,16 @@ class StyTrans(nn.Module):
             input_std, target_std
         )
 
+    def freeze(self):
+        for model in [self.transformer, self.decode, self.embedding]:
+            for param in model.parameters():
+                param.requires_grad = False
+
+    def unfreeze(self):
+        for model in [self.transformer, self.decode, self.embedding]:
+            for param in model.parameters():
+                param.requires_grad = True
+
     def forward(self, samples_c: NestedTensor, samples_s: NestedTensor):
         """The forward expects a NestedTensor, which consists of:
         - samples.tensor: batched images, of shape [batch_size x 3 x H x W]

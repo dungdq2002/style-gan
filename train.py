@@ -11,6 +11,7 @@ from torchvision.utils import save_image
 from models.network import Network
 from models.generator.sampler import InfiniteSamplerWrapper
 from utils import folder
+from utils import support_functions as sf
 from utils.config import Config
 from utils.img_transform import train_transform
 
@@ -43,6 +44,9 @@ if __name__ == "__main__":
 
     if not os.path.exists(train_config.sample_output_dir):
         os.makedirs(train_config.sample_output_dir)
+
+    if not os.path.exists("weights"):
+        os.makedirs("weights")
 
     # device config
     USE_CUDA = torch.cuda.is_available()
@@ -80,25 +84,26 @@ if __name__ == "__main__":
     number_of_styles = len(style_dataset.classes)
 
     # define network and stuff right here
-    network = Network(train_config, number_of_styles)
+    with torch.no_grad():
+        network = Network(train_config, number_of_styles)
     network.train()
     network.to(device)
 
     print("== Device in use: ", device)
 
-    # network = nn.DataParallel(network, device_ids=[0])  # adjust devices
+    network = nn.DataParallel(network, device_ids=[0])  # adjust devices
 
     # optimizer for generator
     optimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.transformer.parameters()
+                "params": network.module.generator.transformer.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.decode.parameters()
+                "params": network.module.generator.decode.parameters()
             },
             {  # TODO: make sure to get parameters of StyTr2
-                "params": network.generator.embedding.parameters()
+                "params": network.module.generator.embedding.parameters()
             },
         ],
         lr=train_config.lr,  # TODO: add more parameters if needed
@@ -108,7 +113,7 @@ if __name__ == "__main__":
     doptimizer = optim.Adam(
         [
             {  # TODO: make sure to get parameters of Discriminator
-                "params": network.discriminator.parameters()
+                "params": network.module.discriminator.parameters()
             }
         ],
         lr=train_config.d_lr,  # TODO: add more parameters if needed
@@ -118,6 +123,10 @@ if __name__ == "__main__":
 
     # training loop
     for it in range(train_config.max_iterations):
+        if it < 1e4:
+            sf.warmup_learning_rate(optimizer, it)
+        else:
+            sf.adjust_learning_rate(optimizer, train_config, it)
         # implement adjust learning rate here if needed
 
         content_images = next(content_iter).to(device)
@@ -136,7 +145,8 @@ if __name__ == "__main__":
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
-        network.discriminator.requires_grad_(False)
+        network.module.discriminator.requires_grad_(False)
+        network.module.generator.unfreeze()
         imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
             content_images, style_images, slabels, False
         )
@@ -144,12 +154,15 @@ if __name__ == "__main__":
         #     content_images, style_images, slabels, False
         # )
 
+        loss_c *= train_config.content_weight
+        loss_s *= train_config.style_weight
+
         optimizer.zero_grad()
         gen_loss = (
-            loss_cls * train_config.cls_weight
-            + loss_adv * train_config.bin_weight
-            + train_config.content_weight * loss_c
-            + train_config.style_weight * loss_s
+            # loss_cls * train_config.cls_weight
+            # + loss_adv * train_config.bin_weight
+            +loss_c
+            + loss_s
             + loss_id1 * train_config.id_1_weight
             + loss_id2 * train_config.id_2_weight
         )  # compute with loss_cls, loss_adv, loss_c, loss_s
@@ -165,7 +178,7 @@ if __name__ == "__main__":
         writer.add_scalar("loss/gen/id2", loss_id2, it)
 
         # save checkpoint
-        state_dict = network.state_dict()
+        state_dict = network.module.state_dict()
         if it % 1000 == 0:
             torch.save(
                 state_dict,
@@ -175,16 +188,19 @@ if __name__ == "__main__":
         # generate sample image when training
         if it % train_config.num_iterations_per_sample_generation == 0:
             # save sample image
-            output = f"{train_config.sample_output_dir}/sample_{it}.png"
-            save_image(imgs[0], output)
+            output_name = f"{train_config.sample_output_dir}/sample_{it}.png"
+            out = torch.cat((content_images, imgs), 0)
+            out = torch.cat((style_images, out), 0)
+            save_image(out, output_name)
 
         # ================== Train the discriminator ================== #
         # for real style images
-        real_loss_cls, real_loss_adv = network.discriminator(
+        real_loss_cls, real_loss_adv = network.module.discriminator(
             style_images, slabels, True
         )
 
-        network.discriminator.requires_grad_(True)
+        network.module.discriminator.requires_grad_(True)
+        network.module.generator.freeze()
         # img, loss_cls, loss_adv, _, _ = network(
         #     content_images, style_images, slabels, not use_real
         # )
@@ -209,6 +225,8 @@ if __name__ == "__main__":
         writer.add_scalar("loss/dis/real_cls", real_loss_cls, it)
         writer.add_scalar("loss/dis/real_adv", real_loss_adv, it)
 
-        print(f"Done iteration {it}, loss: {gen_loss}, {dis_loss}")
+        print(
+            f"Done iteration {it}, gen_loss: {gen_loss}, dis_loss: {dis_loss}, loss_c: {loss_c}, loss_s: {loss_s}, loss_adv: {loss_adv}, loss_cls: {loss_cls}"
+        )
 
 writer.close()

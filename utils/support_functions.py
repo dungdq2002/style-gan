@@ -212,3 +212,18 @@ def coral(source, target):
     ) + target_f_mean.expand_as(source_f_norm)
 
     return source_f_transfer.view(source.size())
+
+
+def adjust_learning_rate(optimizer, config, iteration_count):
+    """Imitating the original implementation"""
+    lr = 2e-4 / (1.0 + config.lr_decay * (iteration_count - 1e4))
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
+
+def warmup_learning_rate(optimizer, iteration_count):
+    """Imitating the original implementation"""
+    lr = args.lr * 0.1 * (1.0 + 3e-4 * iteration_count)
+    # print(lr)
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
