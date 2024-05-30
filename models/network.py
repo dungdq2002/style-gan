@@ -38,6 +38,7 @@ class Network(nn.Module):
         self.discriminator = PatchDiscriminator(scn=number_of_styles)
 
     def forward(self, contents, styles, labels, label=True):
+        raise Exception("Not implemented")
         # unpatch style to img and slabel
         # style_imgs, slabels = styles
 
