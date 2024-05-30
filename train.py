@@ -126,19 +126,19 @@ if __name__ == "__main__":
         slabels = slabels.to(device)
 
         # ratio to flip label in GAN
-        ratio_thr = train_config.gan_ratio / max(it / train_config.gr_freq, 1.0)
+        # ratio_thr = train_config.gan_ratio / max(it / train_config.gr_freq, 1.0)
 
-        if random.random() > ratio_thr:
-            use_real = True
-        else:
-            use_real = False
+        # if random.random() > ratio_thr:
+        #     use_real = True
+        # else:
+        #     use_real = False
 
         # model output
 
         # ================ Train the generator (StyTr2) ================ #
         network.module.discriminator.requires_grad_(False)
         imgs, loss_cls, loss_adv, loss_c, loss_s, loss_id1, loss_id2 = network(
-            content_images, style_images, slabels, not use_real
+            content_images, style_images, slabels, False
         )
         # imgs, loss_cls, loss_adv, loss_c, loss_s = network(
         #     content_images, style_images, slabels, False
@@ -181,7 +181,7 @@ if __name__ == "__main__":
         # ================== Train the discriminator ================== #
         # for real style images
         real_loss_cls, real_loss_adv = network.module.discriminator(
-            style_images, slabels, use_real
+            style_images, slabels, True
         )
 
         network.module.discriminator.requires_grad_(True)
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         #     content_images, style_images, slabels, not use_real
         # )
         img, loss_cls, loss_adv, _, _, _, _ = network(
-            content_images, style_images, slabels, not use_real
+            content_images, style_images, slabels, False
         )
 
         doptimizer.zero_grad()
