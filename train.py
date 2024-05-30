@@ -193,7 +193,10 @@ if __name__ == "__main__":
         # img, loss_cls, loss_adv, _, _, _, _ = network(
         #     content_images, style_images, slabels, False
         # )
-        loss_cls, loss_adv = network.module.discriminator(imgs, slabels, False)
+
+        # imgs = deepcopy(imgs)
+
+        loss_cls, loss_adv = network.module.discriminator(imgs.detach(), slabels, False)
 
         doptimizer.zero_grad()
 
