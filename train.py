@@ -214,7 +214,7 @@ if __name__ == "__main__":
         writer.add_scalar("loss/dis/real_adv", real_loss_adv, it)
 
         print(
-            f"Done iteration {it}, gen_loss: {gen_loss}, dis_loss: {dis_loss}, loss_c: {loss_c}, loss_s: {loss_s}, loss_adv: {loss_adv}, loss_cls: {loss_cls}"
+            f"Done iteration =[{it}]=, gen_loss: {gen_loss}, dis_loss: {dis_loss}, loss_c: {loss_c}, loss_s: {loss_s}, loss_adv: {loss_adv}, loss_cls: {loss_cls}"
         )
 
 writer.close()
