@@ -143,9 +143,9 @@ if __name__ == "__main__":
 
         optimizer.zero_grad()
         gen_loss = (
-            # loss_cls * train_config.cls_weight
-            # + loss_adv * train_config.bin_weight
-            +loss_c
+            loss_cls * train_config.cls_weight
+            + loss_adv * train_config.bin_weight
+            + loss_c
             + loss_s
             + loss_id1 * train_config.id_1_weight
             + loss_id2 * train_config.id_2_weight
