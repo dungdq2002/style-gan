@@ -20,4 +20,4 @@ train:
     gan_ratio: 0.3
     gr_freq: 1
     num_workers: 4
-    num_iterations_per_sample_generation: 100
+    num_iterations_per_sample_generation: 1000
