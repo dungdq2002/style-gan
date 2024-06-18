@@ -1,31 +1,69 @@
+import collections.abc as container_abcs
+import copy
+import functools
+import os
+from itertools import repeat
+from typing import List, Optional
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor, nn
 from torch.nn import init
-import functools
-from torch.optim import lr_scheduler
-import numpy as np
 from torch.nn.parameter import Parameter
+from torch.optim import lr_scheduler
+
+
+def _ntuple(n):
+    def parse(x):
+        if isinstance(x, container_abcs.Iterable):
+            return x
+        return tuple(repeat(x, n))
+
+    return parse
+
+
+# from utils.support_functions import normal, normal_style
+
 ###############################################################################
 # Helper Functions
 ###############################################################################
+# def normal(feat, eps=1e-5):
+#     feat_mean, feat_std = calc_mean_std(feat, eps)
+#     normalized = (feat - feat_mean) / feat_std
+#     return normalized
+
+
+# def normal_style(feat, eps=1e-5):
+#     feat_mean, feat_std = calc_mean_std1(feat, eps)
+#     normalized = (feat - feat_mean) / feat_std
+#     return normalized
+to_1tuple = _ntuple(1)
+to_2tuple = _ntuple(2)
+to_3tuple = _ntuple(3)
+to_4tuple = _ntuple(4)
 
 
 def get_filter(filt_size=3):
-    if(filt_size == 1):
-        a = np.array([1., ])
-    elif(filt_size == 2):
-        a = np.array([1., 1.])
-    elif(filt_size == 3):
-        a = np.array([1., 2., 1.])
-    elif(filt_size == 4):
-        a = np.array([1., 3., 3., 1.])
-    elif(filt_size == 5):
-        a = np.array([1., 4., 6., 4., 1.])
-    elif(filt_size == 6):
-        a = np.array([1., 5., 10., 10., 5., 1.])
-    elif(filt_size == 7):
-        a = np.array([1., 6., 15., 20., 15., 6., 1.])
+    if filt_size == 1:
+        a = np.array(
+            [
+                1.0,
+            ]
+        )
+    elif filt_size == 2:
+        a = np.array([1.0, 1.0])
+    elif filt_size == 3:
+        a = np.array([1.0, 2.0, 1.0])
+    elif filt_size == 4:
+        a = np.array([1.0, 3.0, 3.0, 1.0])
+    elif filt_size == 5:
+        a = np.array([1.0, 4.0, 6.0, 4.0, 1.0])
+    elif filt_size == 6:
+        a = np.array([1.0, 5.0, 10.0, 10.0, 5.0, 1.0])
+    elif filt_size == 7:
+        a = np.array([1.0, 6.0, 15.0, 20.0, 15.0, 6.0, 1.0])
 
     filt = torch.Tensor(a[:, None] * a[None, :])
     filt = filt / torch.sum(filt)
@@ -34,73 +72,92 @@ def get_filter(filt_size=3):
 
 
 class Downsample(nn.Module):
-    def __init__(self, channels, pad_type='reflect', filt_size=3, stride=2, pad_off=0):
+    def __init__(self, channels, pad_type="reflect", filt_size=3, stride=2, pad_off=0):
         super(Downsample, self).__init__()
         self.filt_size = filt_size
         self.pad_off = pad_off
-        self.pad_sizes = [int(1. * (filt_size - 1) / 2), int(np.ceil(1. * (filt_size - 1) / 2)), int(1. * (filt_size - 1) / 2), int(np.ceil(1. * (filt_size - 1) / 2))]
+        self.pad_sizes = [
+            int(1.0 * (filt_size - 1) / 2),
+            int(np.ceil(1.0 * (filt_size - 1) / 2)),
+            int(1.0 * (filt_size - 1) / 2),
+            int(np.ceil(1.0 * (filt_size - 1) / 2)),
+        ]
         self.pad_sizes = [pad_size + pad_off for pad_size in self.pad_sizes]
         self.stride = stride
-        self.off = int((self.stride - 1) / 2.)
+        self.off = int((self.stride - 1) / 2.0)
         self.channels = channels
 
         filt = get_filter(filt_size=self.filt_size)
-        self.register_buffer('filt', filt[None, None, :, :].repeat((self.channels, 1, 1, 1)))
+        self.register_buffer(
+            "filt", filt[None, None, :, :].repeat((self.channels, 1, 1, 1))
+        )
 
         self.pad = get_pad_layer(pad_type)(self.pad_sizes)
 
     def forward(self, inp):
-        if(self.filt_size == 1):
-            if(self.pad_off == 0):
-                return inp[:, :, ::self.stride, ::self.stride]
+        if self.filt_size == 1:
+            if self.pad_off == 0:
+                return inp[:, :, :: self.stride, :: self.stride]
             else:
-                return self.pad(inp)[:, :, ::self.stride, ::self.stride]
+                return self.pad(inp)[:, :, :: self.stride, :: self.stride]
         else:
-            return F.conv2d(self.pad(inp), self.filt, stride=self.stride, groups=inp.shape[1])
+            return F.conv2d(
+                self.pad(inp), self.filt, stride=self.stride, groups=inp.shape[1]
+            )
 
 
 class Upsample2(nn.Module):
-    def __init__(self, scale_factor, mode='nearest'):
+    def __init__(self, scale_factor, mode="nearest"):
         super().__init__()
         self.factor = scale_factor
         self.mode = mode
 
     def forward(self, x):
-        return torch.nn.functional.interpolate(x, scale_factor=self.factor, mode=self.mode)
+        return torch.nn.functional.interpolate(
+            x, scale_factor=self.factor, mode=self.mode
+        )
 
 
 class Upsample(nn.Module):
-    def __init__(self, channels, pad_type='repl', filt_size=4, stride=2):
+    def __init__(self, channels, pad_type="repl", filt_size=4, stride=2):
         super(Upsample, self).__init__()
         self.filt_size = filt_size
         self.filt_odd = np.mod(filt_size, 2) == 1
         self.pad_size = int((filt_size - 1) / 2)
         self.stride = stride
-        self.off = int((self.stride - 1) / 2.)
+        self.off = int((self.stride - 1) / 2.0)
         self.channels = channels
 
         filt = get_filter(filt_size=self.filt_size) * (stride**2)
-        self.register_buffer('filt', filt[None, None, :, :].repeat((self.channels, 1, 1, 1)))
+        self.register_buffer(
+            "filt", filt[None, None, :, :].repeat((self.channels, 1, 1, 1))
+        )
 
         self.pad = get_pad_layer(pad_type)([1, 1, 1, 1])
 
     def forward(self, inp):
-        ret_val = F.conv_transpose2d(self.pad(inp), self.filt, stride=self.stride, padding=1 + self.pad_size, groups=inp.shape[1])[:, :, 1:, 1:]
-        if(self.filt_odd):
+        ret_val = F.conv_transpose2d(
+            self.pad(inp),
+            self.filt,
+            stride=self.stride,
+            padding=1 + self.pad_size,
+            groups=inp.shape[1],
+        )[:, :, 1:, 1:]
+        if self.filt_odd:
             return ret_val
         else:
             return ret_val[:, :, :-1, :-1]
 
 
 def get_pad_layer(pad_type):
-    if(pad_type in ['refl', 'reflect']):
+    if pad_type in ["refl", "reflect"]:
         PadLayer = nn.ReflectionPad2d
-    elif(pad_type in ['repl', 'replicate']):
+    elif pad_type in ["repl", "replicate"]:
         PadLayer = nn.ReplicationPad2d
-    elif(pad_type == 'zero'):
+    elif pad_type == "zero":
         PadLayer = nn.ZeroPad2d
     else:
-        print('Pad type [%s] not recognized' % pad_type)
+        print("Pad type [%s] not recognized" % pad_type)
     return PadLayer
 
 
@@ -109,7 +166,7 @@ class Identity(nn.Module):
         return x
 
 
-def get_norm_layer(norm_type='instance'):
+def get_norm_layer(norm_type="instance"):
     """Return a normalization layer
 
     Parameters:
@@ -118,15 +175,21 @@ def get_norm_layer(norm_type='instance'):
     For BatchNorm, we use learnable affine parameters and track running statistics (mean/stddev).
     For InstanceNorm, we do not use learnable affine parameters. We do not track running statistics.
     """
-    if norm_type == 'batch':
-        norm_layer = functools.partial(nn.BatchNorm2d, affine=True, track_running_stats=True)
-    elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False, track_running_stats=False)
-    elif norm_type == 'none':
+    if norm_type == "batch":
+        norm_layer = functools.partial(
+            nn.BatchNorm2d, affine=True, track_running_stats=True
+        )
+    elif norm_type == "instance":
+        norm_layer = functools.partial(
+            nn.InstanceNorm2d, affine=False, track_running_stats=False
+        )
+    elif norm_type == "none":
+
         def norm_layer(x):
             return Identity()
+
     else:
-        raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
+        raise NotImplementedError("normalization layer [%s] is not found" % norm_type)
     return norm_layer
 
 
@@ -135,7 +198,7 @@ def get_scheduler(optimizer, opt):
 
     Parameters:
         optimizer          -- the optimizer of the network
-        opt (option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions．　
+        opt (option class) -- stores all the experiment flags; needs to be a subclass of BaseOptions．
                               opt.lr_policy is the name of learning rate policy: linear | step | plateau | cosine
 
     For 'linear', we keep the same learning rate for the first <opt.n_epochs> epochs
@@ -143,23 +206,35 @@ def get_scheduler(optimizer, opt):
     For other schedulers (step, plateau, and cosine), we use the default PyTorch schedulers.
     See https://pytorch.org/docs/stable/optim.html for more details.
     """
-    if opt.lr_policy == 'linear':
+    if opt.lr_policy == "linear":
+
         def lambda_rule(epoch):
-            lr_l = 1.0 - max(0, epoch + opt.epoch_count - opt.n_epochs) / float(opt.n_epochs_decay + 1)
+            lr_l = 1.0 - max(0, epoch + opt.epoch_count - opt.n_epochs) / float(
+                opt.n_epochs_decay + 1
+            )
             return lr_l
+
         scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
-    elif opt.lr_policy == 'step':
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=opt.lr_decay_iters, gamma=0.1)
-    elif opt.lr_policy == 'plateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.2, threshold=0.01, patience=5)
-    elif opt.lr_policy == 'cosine':
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=opt.n_epochs, eta_min=0)
+    elif opt.lr_policy == "step":
+        scheduler = lr_scheduler.StepLR(
+            optimizer, step_size=opt.lr_decay_iters, gamma=0.1
+        )
+    elif opt.lr_policy == "plateau":
+        scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.2, threshold=0.01, patience=5
+        )
+    elif opt.lr_policy == "cosine":
+        scheduler = lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=opt.n_epochs, eta_min=0
+        )
     else:
-        return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
+        return NotImplementedError(
+            "learning rate policy [%s] is not implemented", opt.lr_policy
+        )
     return scheduler
 
 
-def init_weights(net, init_type='kaiming', init_gain=0.02, debug=False):
+def init_weights(net, init_type="kaiming", init_gain=0.02, debug=False):
     """Initialize network weights.
 
     Parameters:
@@ -170,31 +245,45 @@ def init_weights(net, init_type='kaiming', init_gain=0.02, debug=False):
     We use 'normal' in the original pix2pix and CycleGAN paper. But xavier and kaiming might
     work better for some applications. Feel free to try yourself.
     """
+
     def init_func(m):  # define the initialization function
         classname = m.__class__.__name__
-        if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+        if hasattr(m, "weight") and (
+            classname.find("Conv") != -1 or classname.find("Linear") != -1
+        ):
             if debug:
                 print(classname)
-            if init_type == 'normal':
+            if init_type == "normal":
                 init.normal_(m.weight.data, 0.0, init_gain)
-            elif init_type == 'xavier':
+            elif init_type == "xavier":
                 init.xavier_normal_(m.weight.data, gain=init_gain)
-            elif init_type == 'kaiming':
-                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
-            elif init_type == 'orthogonal':
+            elif init_type == "kaiming":
+                init.kaiming_normal_(m.weight.data, a=0, mode="fan_in")
+            elif init_type == "orthogonal":
                 init.orthogonal_(m.weight.data, gain=init_gain)
             else:
-                raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
-            if hasattr(m, 'bias') and m.bias is not None:
+                raise NotImplementedError(
+                    "initialization method [%s] is not implemented" % init_type
+                )
+            if hasattr(m, "bias") and m.bias is not None:
                 init.constant_(m.bias.data, 0.0)
-        elif classname.find('BatchNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+        elif (
+            classname.find("BatchNorm2d") != -1
+        ):  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
             init.normal_(m.weight.data, 1.0, init_gain)
             init.constant_(m.bias.data, 0.0)
 
     net.apply(init_func)  # apply the initialization function <init_func>
 
 
-def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, initialize_weights=True):
+def init_net(
+    net,
+    init_type="normal",
+    init_gain=0.02,
+    gpu_ids=[],
+    debug=False,
+    initialize_weights=True,
+):
     """Initialize a network: 1. register CPU/GPU device (with multi-GPU support); 2. initialize the network weights
     Parameters:
         net (network)      -- the network to be initialized
@@ -205,7 +294,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, i
     Return an initialized network.
     """
     if len(gpu_ids) > 0:
-        assert(torch.cuda.is_available())
+        assert torch.cuda.is_available()
         net.to(gpu_ids[0])
         # if not amp:
         # net = torch.nn.DataParallel(net, gpu_ids)  # multi-GPUs for non-AMP training
@@ -214,7 +303,21 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[], debug=False, i
     return net
 
 
-def define_D(input_nc, ndf, netD, n_layers_D=3, image_size = 256, feature_dim = 256, max_conv_dim = 512,norm='batch', init_type='normal', init_gain=0.02, no_antialias=False, gpu_ids=[], opt=None):
+def define_D(
+    input_nc,
+    ndf,
+    netD,
+    n_layers_D=3,
+    image_size=256,
+    feature_dim=256,
+    max_conv_dim=512,
+    norm="batch",
+    init_type="normal",
+    init_gain=0.02,
+    no_antialias=False,
+    gpu_ids=[],
+    opt=None,
+):
     """Create a discriminator
 
     Parameters:
@@ -247,26 +350,54 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, image_size = 256, feature_dim = 
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
 
-    if netD == 'basic':  # default PatchGAN classifier
-        net = NLayerDiscriminator(input_nc, ndf, n_layers=3, image_size = image_size, norm_layer=norm_layer, no_antialias=no_antialias,)
-    elif netD == 'n_layers':  # more options
-        net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, no_antialias=no_antialias,)
-    elif netD == 'pixel':     # classify if each pixel is real or fake
+    if netD == "basic":  # default PatchGAN classifier
+        net = NLayerDiscriminator(
+            input_nc,
+            ndf,
+            n_layers=3,
+            image_size=image_size,
+            norm_layer=norm_layer,
+            no_antialias=no_antialias,
+        )
+    elif netD == "n_layers":  # more options
+        net = NLayerDiscriminator(
+            input_nc,
+            ndf,
+            n_layers_D,
+            norm_layer=norm_layer,
+            no_antialias=no_antialias,
+        )
+    elif netD == "pixel":  # classify if each pixel is real or fake
         net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
-    elif 'stylegan2' in netD:
-        net = StyleGAN2Discriminator(input_nc, ndf, n_layers_D, no_antialias=no_antialias, opt=opt)
-    elif netD == 'NCE':  # default PatchGAN classifier
-        net = NCEDiscriminator(input_nc, ndf, n_layers=3, image_size = image_size, feature_dim = feature_dim, max_conv_dim = max_conv_dim, norm_layer=norm_layer, no_antialias=no_antialias,)
+    elif "stylegan2" in netD:
+        net = StyleGAN2Discriminator(
+            input_nc, ndf, n_layers_D, no_antialias=no_antialias, opt=opt
+        )
+    elif netD == "NCE":  # default PatchGAN classifier
+        net = NCEDiscriminator(
+            input_nc,
+            ndf,
+            n_layers=3,
+            image_size=image_size,
+            feature_dim=feature_dim,
+            max_conv_dim=max_conv_dim,
+            norm_layer=norm_layer,
+            no_antialias=no_antialias,
+        )
     else:
-        raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
-     
-    return init_net(net, init_type, init_gain, gpu_ids,
-                    initialize_weights=('stylegan2' not in netD))
+        raise NotImplementedError(
+            "Discriminator model name [%s] is not recognized" % netD
+        )
+
+    return init_net(
+        net, init_type, init_gain, gpu_ids, initialize_weights=("stylegan2" not in netD)
+    )
 
 
 ##############################################################################
 # Classes
 ##############################################################################
+
 
 class GANLoss(nn.Module):
     """Define different GAN objectives.
@@ -276,7 +407,7 @@ class GANLoss(nn.Module):
     """
 
     def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
-        """ Initialize the GANLoss class.
+        """Initialize the GANLoss class.
 
         Parameters:
             gan_mode (str) - - the type of GAN objective. It currently supports vanilla, lsgan, and wgangp.
@@ -287,19 +418,19 @@ class GANLoss(nn.Module):
         LSGAN needs no sigmoid. vanilla GANs will handle it with BCEWithLogitsLoss.
         """
         super(GANLoss, self).__init__()
-        self.register_buffer('real_label', torch.tensor(target_real_label))
-        self.register_buffer('fake_label', torch.tensor(target_fake_label))
+        self.register_buffer("real_label", torch.tensor(target_real_label))
+        self.register_buffer("fake_label", torch.tensor(target_fake_label))
         self.gan_mode = gan_mode
-        if gan_mode == 'lsgan':
+        if gan_mode == "lsgan":
             self.loss = nn.MSELoss()
-        elif gan_mode == 'vanilla':
+        elif gan_mode == "vanilla":
             self.loss = nn.BCEWithLogitsLoss()
-        elif gan_mode in ['wgangp', 'nonsaturating']:
+        elif gan_mode in ["wgangp", "nonsaturating"]:
             self.loss = None
         elif gan_mode == "hinge":
             self.loss = None
         else:
-            raise NotImplementedError('gan mode %s not implemented' % gan_mode)
+            raise NotImplementedError("gan mode %s not implemented" % gan_mode)
 
     def get_target_tensor(self, prediction, target_is_real):
         """Create label tensors with the same size as the input.
@@ -329,30 +460,36 @@ class GANLoss(nn.Module):
             the calculated loss.
         """
         bs = prediction.size(0)
-        if self.gan_mode in ['lsgan', 'vanilla']:
+        if self.gan_mode in ["lsgan", "vanilla"]:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
-        elif self.gan_mode == 'wgangp':
+        elif self.gan_mode == "wgangp":
             if target_is_real:
                 loss = -prediction.mean()
             else:
                 loss = prediction.mean()
-        elif self.gan_mode == 'nonsaturating':
+        elif self.gan_mode == "nonsaturating":
             if target_is_real:
                 loss = F.softplus(-prediction).view(bs, -1).mean(dim=1)
             else:
                 loss = F.softplus(prediction).view(bs, -1).mean(dim=1)
-        elif self.gan_mode == 'hinge':
+        elif self.gan_mode == "hinge":
             if target_is_real:
-                minvalue = torch.min(prediction - 1, torch.zeros(prediction.shape).to(prediction.device))
+                minvalue = torch.min(
+                    prediction - 1, torch.zeros(prediction.shape).to(prediction.device)
+                )
                 loss = -torch.mean(minvalue)
             else:
-                minvalue = torch.min(-prediction - 1,torch.zeros(prediction.shape).to(prediction.device))
+                minvalue = torch.min(
+                    -prediction - 1, torch.zeros(prediction.shape).to(prediction.device)
+                )
                 loss = -torch.mean(minvalue)
         return loss
 
 
-def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', constant=1.0, lambda_gp=10.0):
+def cal_gradient_penalty(
+    netD, real_data, fake_data, device, type="mixed", constant=1.0, lambda_gp=10.0
+):
     """Calculate the gradient penalty loss, used in WGAN-GP paper https://arxiv.org/abs/1704.00028
 
     Arguments:
@@ -367,23 +504,38 @@ def cal_gradient_penalty(netD, real_data, fake_data, device, type='mixed', const
     Returns the gradient penalty loss
     """
     if lambda_gp > 0.0:
-        if type == 'real':   # either use real images, fake images, or a linear interpolation of two.
+        if (
+            type == "real"
+        ):  # either use real images, fake images, or a linear interpolation of two.
             interpolatesv = real_data
-        elif type == 'fake':
+        elif type == "fake":
             interpolatesv = fake_data
-        elif type == 'mixed':
+        elif type == "mixed":
             alpha = torch.rand(real_data.shape[0], 1, device=device)
-            alpha = alpha.expand(real_data.shape[0], real_data.nelement() // real_data.shape[0]).contiguous().view(*real_data.shape)
+            alpha = (
+                alpha.expand(
+                    real_data.shape[0], real_data.nelement() // real_data.shape[0]
+                )
+                .contiguous()
+                .view(*real_data.shape)
+            )
             interpolatesv = alpha * real_data + ((1 - alpha) * fake_data)
         else:
-            raise NotImplementedError('{} not implemented'.format(type))
+            raise NotImplementedError("{} not implemented".format(type))
         interpolatesv.requires_grad_(True)
         disc_interpolates = netD(interpolatesv)
-        gradients = torch.autograd.grad(outputs=disc_interpolates, inputs=interpolatesv,
-                                        grad_outputs=torch.ones(disc_interpolates.size()).to(device),
-                                        create_graph=True, retain_graph=True, only_inputs=True)
+        gradients = torch.autograd.grad(
+            outputs=disc_interpolates,
+            inputs=interpolatesv,
+            grad_outputs=torch.ones(disc_interpolates.size()).to(device),
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )
         gradients = gradients[0].view(real_data.size(0), -1)  # flat the data
-        gradient_penalty = (((gradients + 1e-16).norm(2, dim=1) - constant) ** 2).mean() * lambda_gp        # added eps
+        gradient_penalty = (
+            ((gradients + 1e-16).norm(2, dim=1) - constant) ** 2
+        ).mean() * lambda_gp  # added eps
         return gradient_penalty, gradients
     else:
         return 0.0, None
@@ -396,9 +548,10 @@ class Normalize(nn.Module):
         self.power = power
 
     def forward(self, x):
-        norm = x.pow(self.power).sum(1, keepdim=True).pow(1. / self.power)
+        norm = x.pow(self.power).sum(1, keepdim=True).pow(1.0 / self.power)
         out = x.div(norm + 1e-7)
         return out
+
 
 ##################################################################################
 # Sequential Models
@@ -406,11 +559,17 @@ class Normalize(nn.Module):
 
 
 class ResBlocks(nn.Module):
-    def __init__(self, num_blocks, dim, norm='inst', activation='relu', pad_type='zero', nz=0):
+    def __init__(
+        self, num_blocks, dim, norm="inst", activation="relu", pad_type="zero", nz=0
+    ):
         super(ResBlocks, self).__init__()
         self.model = []
         for i in range(num_blocks):
-            self.model += [ResBlock(dim, norm=norm, activation=activation, pad_type=pad_type, nz=nz)]
+            self.model += [
+                ResBlock(
+                    dim, norm=norm, activation=activation, pad_type=pad_type, nz=nz
+                )
+            ]
         self.model = nn.Sequential(*self.model)
 
     def forward(self, x):
@@ -422,54 +581,67 @@ class ResBlocks(nn.Module):
 ##################################################################################
 def cat_feature(x, y):
     y_expand = y.view(y.size(0), y.size(1), 1, 1).expand(
-        y.size(0), y.size(1), x.size(2), x.size(3))
+        y.size(0), y.size(1), x.size(2), x.size(3)
+    )
     x_cat = torch.cat([x, y_expand], 1)
     return x_cat
 
+
 class Conv2dBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='relu', pad_type='zero'):
+    def __init__(
+        self,
+        input_dim,
+        output_dim,
+        kernel_size,
+        stride,
+        padding=0,
+        norm="none",
+        activation="relu",
+        pad_type="zero",
+    ):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
-        if pad_type == 'reflect':
+        if pad_type == "reflect":
             self.pad = nn.ReflectionPad2d(padding)
-        elif pad_type == 'zero':
+        elif pad_type == "zero":
             self.pad = nn.ZeroPad2d(padding)
         else:
             assert 0, "Unsupported padding type: {}".format(pad_type)
 
         # initialize normalization
         norm_dim = output_dim
-        if norm == 'batch':
+        if norm == "batch":
             self.norm = nn.BatchNorm2d(norm_dim)
-        elif norm == 'inst':
+        elif norm == "inst":
             self.norm = nn.InstanceNorm2d(norm_dim, track_running_stats=False)
-        elif norm == 'ln':
+        elif norm == "ln":
             self.norm = LayerNorm(norm_dim)
-        elif norm == 'none':
+        elif norm == "none":
             self.norm = None
         else:
             assert 0, "Unsupported normalization: {}".format(norm)
 
         # initialize activation
-        if activation == 'relu':
+        if activation == "relu":
             self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
+        elif activation == "lrelu":
             self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
+        elif activation == "prelu":
             self.activation = nn.PReLU()
-        elif activation == 'selu':
+        elif activation == "selu":
             self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
+        elif activation == "tanh":
             self.activation = nn.Tanh()
-        elif activation == 'none':
+        elif activation == "none":
             self.activation = None
         else:
             assert 0, "Unsupported activation: {}".format(activation)
 
         # initialize convolution
-        self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride, bias=self.use_bias)
+        self.conv = nn.Conv2d(
+            input_dim, output_dim, kernel_size, stride, bias=self.use_bias
+        )
 
     def forward(self, x):
         x = self.conv(self.pad(x))
@@ -481,7 +653,7 @@ class Conv2dBlock(nn.Module):
 
 
 class LinearBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, norm='none', activation='relu'):
+    def __init__(self, input_dim, output_dim, norm="none", activation="relu"):
         super(LinearBlock, self).__init__()
         use_bias = True
         # initialize fully connected layer
@@ -489,29 +661,29 @@ class LinearBlock(nn.Module):
 
         # initialize normalization
         norm_dim = output_dim
-        if norm == 'batch':
+        if norm == "batch":
             self.norm = nn.BatchNorm1d(norm_dim)
-        elif norm == 'inst':
+        elif norm == "inst":
             self.norm = nn.InstanceNorm1d(norm_dim)
-        elif norm == 'ln':
+        elif norm == "ln":
             self.norm = LayerNorm(norm_dim)
-        elif norm == 'none':
+        elif norm == "none":
             self.norm = None
         else:
             assert 0, "Unsupported normalization: {}".format(norm)
 
         # initialize activation
-        if activation == 'relu':
+        if activation == "relu":
             self.activation = nn.ReLU(inplace=True)
-        elif activation == 'lrelu':
+        elif activation == "lrelu":
             self.activation = nn.LeakyReLU(0.2, inplace=True)
-        elif activation == 'prelu':
+        elif activation == "prelu":
             self.activation = nn.PReLU()
-        elif activation == 'selu':
+        elif activation == "selu":
             self.activation = nn.SELU(inplace=True)
-        elif activation == 'tanh':
+        elif activation == "tanh":
             self.activation = nn.Tanh()
-        elif activation == 'none':
+        elif activation == "none":
             self.activation = None
         else:
             assert 0, "Unsupported activation: {}".format(activation)
@@ -523,6 +695,7 @@ class LinearBlock(nn.Module):
         if self.activation:
             out = self.activation(out)
         return out
+
 
 ##################################################################################
 # Normalization layers
@@ -551,10 +724,19 @@ class LayerNorm(nn.Module):
             x = x * self.gamma.view(*shape) + self.beta.view(*shape)
         return x
 
+
 class NLayerDiscriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, image_size = 256,norm_layer=nn.BatchNorm2d, no_antialias=False):
+    def __init__(
+        self,
+        input_nc,
+        ndf=64,
+        n_layers=3,
+        image_size=256,
+        norm_layer=nn.BatchNorm2d,
+        no_antialias=False,
+    ):
         """Construct a PatchGAN discriminator
 
         Parameters:
@@ -564,51 +746,84 @@ class NLayerDiscriminator(nn.Module):
             norm_layer      -- normalization layer
         """
         super(NLayerDiscriminator, self).__init__()
-        if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
+        if (
+            type(norm_layer) == functools.partial
+        ):  # no need to use bias as BatchNorm2d has affine parameters
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
 
         kw = 4
         padw = 1
-        if(no_antialias):
-            sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw), nn.LeakyReLU(0.2, True)]
+        if no_antialias:
+            sequence = [
+                nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw),
+                nn.LeakyReLU(0.2, True),
+            ]
         else:
-            sequence = [nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=1, padding=padw), nn.LeakyReLU(0.2, True), Downsample(ndf)]
+            sequence = [
+                nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=1, padding=padw),
+                nn.LeakyReLU(0.2, True),
+                Downsample(ndf),
+            ]
         nf_mult = 1
         nf_mult_prev = 1
         for n in range(1, n_layers):  # gradually increase the number of filters
             nf_mult_prev = nf_mult
-            nf_mult = min(2 ** n, 8)
-            if(no_antialias):
+            nf_mult = min(2**n, 8)
+            if no_antialias:
                 sequence += [
-                    nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=2, padding=padw, bias=use_bias),
+                    nn.Conv2d(
+                        ndf * nf_mult_prev,
+                        ndf * nf_mult,
+                        kernel_size=kw,
+                        stride=2,
+                        padding=padw,
+                        bias=use_bias,
+                    ),
                     norm_layer(ndf * nf_mult),
-                    nn.LeakyReLU(0.2, True)
+                    nn.LeakyReLU(0.2, True),
                 ]
             else:
                 sequence += [
-                    nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw, bias=use_bias),
+                    nn.Conv2d(
+                        ndf * nf_mult_prev,
+                        ndf * nf_mult,
+                        kernel_size=kw,
+                        stride=1,
+                        padding=padw,
+                        bias=use_bias,
+                    ),
                     norm_layer(ndf * nf_mult),
                     nn.LeakyReLU(0.2, True),
-                    Downsample(ndf * nf_mult)]
+                    Downsample(ndf * nf_mult),
+                ]
 
         nf_mult_prev = nf_mult
-        nf_mult = min(2 ** n_layers, 8)
+        nf_mult = min(2**n_layers, 8)
         sequence += [
-            nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw, bias=use_bias),
+            nn.Conv2d(
+                ndf * nf_mult_prev,
+                ndf * nf_mult,
+                kernel_size=kw,
+                stride=1,
+                padding=padw,
+                bias=use_bias,
+            ),
             norm_layer(ndf * nf_mult),
-            nn.LeakyReLU(0.2, True)
+            nn.LeakyReLU(0.2, True),
         ]
 
-        sequence += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)]  # output 1 channel prediction map
+        sequence += [
+            nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw)
+        ]  # output 1 channel prediction map
         self.model = nn.Sequential(*sequence)
-
 
     def forward(self, input):
         """Standard forward."""
-        logit = self.model(input) 
+        logit = self.model(input)
         return logit
+
 
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
@@ -622,7 +837,9 @@ class PixelDiscriminator(nn.Module):
             norm_layer      -- normalization layer
         """
         super(PixelDiscriminator, self).__init__()
-        if type(norm_layer) == functools.partial:  # no need to use bias as BatchNorm2d has affine parameters
+        if (
+            type(norm_layer) == functools.partial
+        ):  # no need to use bias as BatchNorm2d has affine parameters
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
@@ -633,7 +850,8 @@ class PixelDiscriminator(nn.Module):
             nn.Conv2d(ndf, ndf * 2, kernel_size=1, stride=1, padding=0, bias=use_bias),
             norm_layer(ndf * 2),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(ndf * 2, 1, kernel_size=1, stride=1, padding=0, bias=use_bias)]
+            nn.Conv2d(ndf * 2, 1, kernel_size=1, stride=1, padding=0, bias=use_bias),
+        ]
 
         self.net = nn.Sequential(*self.net)
 
@@ -641,10 +859,18 @@ class PixelDiscriminator(nn.Module):
         """Standard forward."""
         return self.net(input)
 
+
 class PatchDiscriminator(NLayerDiscriminator):
     """Defines a PatchGAN discriminator"""
 
-    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, no_antialias=False):
+    def __init__(
+        self,
+        input_nc,
+        ndf=64,
+        n_layers=3,
+        norm_layer=nn.BatchNorm2d,
+        no_antialias=False,
+    ):
         super().__init__(input_nc, ndf, 2, norm_layer, no_antialias)
 
     def forward(self, input):
@@ -653,8 +879,11 @@ class PatchDiscriminator(NLayerDiscriminator):
         Y = H // size
         X = W // size
         input = input.view(B, C, Y, size, X, size)
-        input = input.permute(0, 2, 4, 1, 3, 5).contiguous().view(B * Y * X, C, size, size)
+        input = (
+            input.permute(0, 2, 4, 1, 3, 5).contiguous().view(B * Y * X, C, size, size)
+        )
         return super().forward(input)
+
 
 class GroupedChannelNorm(nn.Module):
     def __init__(self, num_groups):
@@ -669,3 +898,422 @@ class GroupedChannelNorm(nn.Module):
         std = x.std(dim=2, keepdim=True)
         x_norm = (x - mean) / (std + 1e-7)
         return x_norm.view(*shape)
+
+
+class Transformer(nn.Module):
+
+    def __init__(
+        self,
+        d_model=512,
+        nhead=8,
+        num_encoder_layers=3,
+        num_decoder_layers=3,
+        dim_feedforward=2048,
+        dropout=0.1,
+        activation="relu",
+        normalize_before=False,
+        return_intermediate_dec=False,
+    ):
+        super().__init__()
+
+        encoder_layer = TransformerEncoderLayer(
+            d_model, nhead, dim_feedforward, dropout, activation, normalize_before
+        )
+        encoder_norm = nn.LayerNorm(d_model) if normalize_before else None
+        self.encoder_c = TransformerEncoder(
+            encoder_layer, num_encoder_layers, encoder_norm
+        )
+        self.encoder_s = TransformerEncoder(
+            encoder_layer, num_encoder_layers, encoder_norm
+        )
+
+        decoder_layer = TransformerDecoderLayer(
+            d_model, nhead, dim_feedforward, dropout, activation, normalize_before
+        )
+        decoder_norm = nn.LayerNorm(d_model)
+        self.decoder = TransformerDecoder(
+            decoder_layer,
+            num_decoder_layers,
+            decoder_norm,
+            return_intermediate=return_intermediate_dec,
+        )
+
+        self._reset_parameters()
+
+        self.d_model = d_model
+        self.nhead = nhead
+
+        self.new_ps = nn.Conv2d(512, 512, (1, 1))
+        self.averagepooling = nn.AdaptiveAvgPool2d(18)
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+
+    def forward(self, style, mask, content, pos_embed_c, pos_embed_s):
+
+        # content-aware positional embedding
+        content_pool = self.averagepooling(content)
+        pos_c = self.new_ps(content_pool)
+        pos_embed_c = F.interpolate(pos_c, mode="bilinear", size=style.shape[-2:])
+
+        ###flatten NxCxHxW to HWxNxC
+        style = style.flatten(2).permute(2, 0, 1)
+        if pos_embed_s is not None:
+            pos_embed_s = pos_embed_s.flatten(2).permute(2, 0, 1)
+
+        content = content.flatten(2).permute(2, 0, 1)
+        if pos_embed_c is not None:
+            pos_embed_c = pos_embed_c.flatten(2).permute(2, 0, 1)
+
+        style = self.encoder_s(style, src_key_padding_mask=mask, pos=pos_embed_s)
+        content = self.encoder_c(content, src_key_padding_mask=mask, pos=pos_embed_c)
+        hs = self.decoder(
+            content,
+            style,
+            memory_key_padding_mask=mask,
+            pos=pos_embed_s,
+            query_pos=pos_embed_c,
+        )[0]
+
+        ### HWxNxC to NxCxHxW to
+        N, B, C = hs.shape
+        H = int(np.sqrt(N))
+        hs = hs.permute(1, 2, 0)
+        hs = hs.view(B, C, -1, H)
+
+        return hs
+
+
+class TransformerEncoder(nn.Module):
+
+    def __init__(self, encoder_layer, num_layers, norm=None):
+        super().__init__()
+        self.layers = _get_clones(encoder_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+
+    def forward(
+        self,
+        src,
+        mask: Optional[Tensor] = None,
+        src_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+    ):
+        output = src
+
+        for layer in self.layers:
+            output = layer(
+                output,
+                src_mask=mask,
+                src_key_padding_mask=src_key_padding_mask,
+                pos=pos,
+            )
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
+
+
+class TransformerDecoder(nn.Module):
+
+    def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
+        super().__init__()
+        self.layers = _get_clones(decoder_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+        self.return_intermediate = return_intermediate
+
+    def forward(
+        self,
+        tgt,
+        memory,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
+        output = tgt
+
+        intermediate = []
+
+        for layer in self.layers:
+            output = layer(
+                output,
+                memory,
+                tgt_mask=tgt_mask,
+                memory_mask=memory_mask,
+                tgt_key_padding_mask=tgt_key_padding_mask,
+                memory_key_padding_mask=memory_key_padding_mask,
+                pos=pos,
+                query_pos=query_pos,
+            )
+            if self.return_intermediate:
+                intermediate.append(self.norm(output))
+
+        if self.norm is not None:
+            output = self.norm(output)
+            if self.return_intermediate:
+                intermediate.pop()
+                intermediate.append(output)
+
+        if self.return_intermediate:
+            return torch.stack(intermediate)
+
+        return output.unsqueeze(0)
+
+
+class TransformerEncoderLayer(nn.Module):
+
+    def __init__(
+        self,
+        d_model,
+        nhead,
+        dim_feedforward=2048,
+        dropout=0.1,
+        activation="relu",
+        normalize_before=False,
+    ):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+        self.activation = _get_activation_fn(activation)
+        self.normalize_before = normalize_before
+
+    def with_pos_embed(self, tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward_post(
+        self,
+        src,
+        src_mask: Optional[Tensor] = None,
+        src_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+    ):
+        q = k = self.with_pos_embed(src, pos)
+        # q = k = src
+        # print(q.size(),k.size(),src.size())
+        src2 = self.self_attn(
+            q, k, value=src, attn_mask=src_mask, key_padding_mask=src_key_padding_mask
+        )[0]
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+        return src
+
+    def forward_pre(
+        self,
+        src,
+        src_mask: Optional[Tensor] = None,
+        src_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+    ):
+        src2 = self.norm1(src)
+        q = k = self.with_pos_embed(src2, pos)
+        src2 = self.self_attn(
+            q, k, value=src2, attn_mask=src_mask, key_padding_mask=src_key_padding_mask
+        )[0]
+        src = src + self.dropout1(src2)
+        src2 = self.norm2(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
+        src = src + self.dropout2(src2)
+        return src
+
+    def forward(
+        self,
+        src,
+        src_mask: Optional[Tensor] = None,
+        src_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+    ):
+        if self.normalize_before:
+            return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
+        return self.forward_post(src, src_mask, src_key_padding_mask, pos)
+
+
+class TransformerDecoderLayer(nn.Module):
+
+    def __init__(
+        self,
+        d_model,
+        nhead,
+        dim_feedforward=2048,
+        dropout=0.1,
+        activation="relu",
+        normalize_before=False,
+    ):
+        super().__init__()
+        # d_model embedding dim
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.norm3 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+
+        self.activation = _get_activation_fn(activation)
+        self.normalize_before = normalize_before
+
+    def with_pos_embed(self, tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward_post(
+        self,
+        tgt,
+        memory,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
+
+        q = self.with_pos_embed(tgt, query_pos)
+        k = self.with_pos_embed(memory, pos)
+        v = memory
+
+        tgt2 = self.self_attn(
+            q, k, v, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+        )[0]
+
+        tgt = tgt + self.dropout1(tgt2)
+        tgt = self.norm1(tgt)
+        tgt2 = self.multihead_attn(
+            query=self.with_pos_embed(tgt, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )[0]
+        tgt = tgt + self.dropout2(tgt2)
+        tgt = self.norm2(tgt)
+        tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))
+        tgt = tgt + self.dropout3(tgt2)
+        tgt = self.norm3(tgt)
+        return tgt
+
+    def forward_pre(
+        self,
+        tgt,
+        memory,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
+        tgt2 = self.norm1(tgt)
+        q = k = self.with_pos_embed(tgt2, query_pos)
+        tgt2 = self.self_attn(
+            q, k, value=tgt2, attn_mask=tgt_mask, key_padding_mask=tgt_key_padding_mask
+        )[0]
+
+        tgt = tgt + self.dropout1(tgt2)
+        tgt2 = self.norm2(tgt)
+        tgt2 = self.multihead_attn(
+            query=self.with_pos_embed(tgt2, query_pos),
+            key=self.with_pos_embed(memory, pos),
+            value=memory,
+            attn_mask=memory_mask,
+            key_padding_mask=memory_key_padding_mask,
+        )[0]
+
+        tgt = tgt + self.dropout2(tgt2)
+        tgt2 = self.norm3(tgt)
+        tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt2))))
+        tgt = tgt + self.dropout3(tgt2)
+        return tgt
+
+    def forward(
+        self,
+        tgt,
+        memory,
+        tgt_mask: Optional[Tensor] = None,
+        memory_mask: Optional[Tensor] = None,
+        tgt_key_padding_mask: Optional[Tensor] = None,
+        memory_key_padding_mask: Optional[Tensor] = None,
+        pos: Optional[Tensor] = None,
+        query_pos: Optional[Tensor] = None,
+    ):
+        if self.normalize_before:
+            return self.forward_pre(
+                tgt,
+                memory,
+                tgt_mask,
+                memory_mask,
+                tgt_key_padding_mask,
+                memory_key_padding_mask,
+                pos,
+                query_pos,
+            )
+        return self.forward_post(
+            tgt,
+            memory,
+            tgt_mask,
+            memory_mask,
+            tgt_key_padding_mask,
+            memory_key_padding_mask,
+            pos,
+            query_pos,
+        )
+
+
+def _get_clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
+
+def _get_activation_fn(activation):
+    """Return an activation function given a string"""
+    if activation == "relu":
+        return F.relu
+    if activation == "gelu":
+        return F.gelu
+    if activation == "glu":
+        return F.glu
+    raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
+
+class PatchEmbed(nn.Module):
+    """Image to Patch Embedding"""
+
+    def __init__(self, img_size=256, patch_size=8, in_chans=3, embed_dim=512):
+        super().__init__()
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
+        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.num_patches = num_patches
+
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_size, stride=patch_size
+        )
+        self.up1 = nn.Upsample(scale_factor=2, mode="nearest")
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+        x = self.proj(x)
+
+        return x
