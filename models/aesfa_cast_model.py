@@ -304,8 +304,8 @@ class AesfaCastModel(BaseModel):
         self.image_paths = input["A_paths" if AtoB else "B_paths"]
 
     def forward(self):
-        print("real_A:", self.real_A.shape)
-        print("real_B:", self.real_B.shape)
+        # print("real_A:", self.real_A.shape)
+        # print("real_B:", self.real_B.shape)
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         self.real_A_feat, self.real_B_feat = self.netAesfa(
             self.real_A, self.real_B
@@ -461,9 +461,9 @@ class AesfaCastModel(BaseModel):
 
         # L1 Cycle Loss
         if self.opt.lambda_CYC > 0.0:
-            print(
-                self.rec_A.shape, self.real_A.shape, self.rec_B.shape, self.real_B.shape
-            )
+            # print(
+            #     self.rec_A.shape, self.real_A.shape, self.rec_B.shape, self.real_B.shape
+            # )
             self.loss_cyc_A = (
                 self.criterionCyc(self.rec_A, self.real_A) * self.opt.lambda_CYC
             )
