@@ -140,6 +140,9 @@ class ADAIN_Encoder(nn.Module):
             return adain_feat
 
 
+# class AesFA(nn.Module):
+
+
 class StyTr_Encoder(nn.Module):
     def __init__(self, encoder, decoder, patch_emb, transformer):
         super().__init__()

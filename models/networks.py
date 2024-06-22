@@ -1094,7 +1094,13 @@ class TransformerEncoderLayer(nn.Module):
         self.normalize_before = normalize_before
 
     def with_pos_embed(self, tensor, pos: Optional[Tensor]):
-        return tensor if pos is None else tensor + pos
+        if pos is None:
+            return tensor
+
+        # random crop pos is pos.shape[0] > tensor.shape[0] to make sure pos.shape[0] == tensor.shape[0]
+        if pos.shape[0] > tensor.shape[0]:
+            pos = pos[: tensor.shape[0]]
+        return tensor + pos
 
     def forward_post(
         self,
@@ -1285,6 +1291,7 @@ class TransformerDecoderLayer(nn.Module):
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
+
 def _get_activation_fn(activation):
     """Return an activation function given a string"""
     if activation == "relu":
@@ -1294,6 +1301,7 @@ def _get_activation_fn(activation):
     if activation == "glu":
         return F.glu
     raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
+
 
 class PatchEmbed(nn.Module):
     """Image to Patch Embedding"""
