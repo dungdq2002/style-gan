@@ -6,7 +6,7 @@ import torch
 vgg = get_vgg()
 vgg.load_state_dict(torch.load("experiment/models/vgg_normalised.pth"))
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 model = torch.load("experiment/models/checkpoint_399000.pth")
 
