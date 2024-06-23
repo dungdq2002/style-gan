@@ -165,5 +165,7 @@ out/
 log/
 run/
 dataset.zip
+experiment/
+experiment.zip
 
 playground.ipynb

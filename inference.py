@@ -4,11 +4,11 @@ import models.generator.StyTR as StyTR
 import torch
 
 vgg = get_vgg()
-vgg.load_state_dict(torch.load("pretrained/models/vgg_normalised.pth"))
+vgg.load_state_dict(torch.load("experiment/models/vgg_normalised.pth"))
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
-model = torch.load("pretrained/models/checkpoint_399000.pth")
+model = torch.load("experiment/models/checkpoint_399000.pth")
 
 generator_state_dict = {k: v for k, v in model.items() if "generator" in k}
 
@@ -65,8 +65,8 @@ crop = "store_true"
 content_tf = test_transform(content_size, crop)
 style_tf = test_transform(style_size, crop)
 
-content_image = content_tf(Image.open("pretrained/content/mountain.jpg").convert("RGB"))
-style_image = style_tf(Image.open("pretrained/style/starry_night.jpg").convert("RGB"))
+content_image = content_tf(Image.open("experiment/content/mountain.jpg").convert("RGB"))
+style_image = style_tf(Image.open("experiment/style/starry_night.jpg").convert("RGB"))
 
 content_image = content_image.to(device).unsqueeze(0)
 style_image = style_image.to(device).unsqueeze(0)
